@@ -191,6 +191,9 @@ class MainActivity : ComponentActivity(), YouTubePlayerManager.PlayerController 
         return null
     }
 
+    private var customView: View? = null
+    private var customViewCallback: WebChromeClient.CustomViewCallback? = null
+
     @SuppressLint("SetJavaScriptEnabled")
     fun getOrCreateWebView(context: Context): WebView {
         YouTubePlayerManager.persistentWebView?.let { existing ->
@@ -234,6 +237,18 @@ class MainActivity : ComponentActivity(), YouTubePlayerManager.PlayerController 
 
                 override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
                     super.onShowCustomView(view, callback)
+                    if (customView != null) {
+                        callback?.onCustomViewHidden()
+                        return
+                    }
+                    customView = view
+                    customViewCallback = callback
+                    val decorView = window.decorView as ViewGroup
+                    decorView.addView(view, ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    ))
+
                     if (!isFullscreenMode.value) {
                         toggleFullscreen()
                     }
@@ -241,6 +256,13 @@ class MainActivity : ComponentActivity(), YouTubePlayerManager.PlayerController 
 
                 override fun onHideCustomView() {
                     super.onHideCustomView()
+                    val view = customView ?: return
+                    val decorView = window.decorView as ViewGroup
+                    decorView.removeView(view)
+                    customViewCallback?.onCustomViewHidden()
+                    customView = null
+                    customViewCallback = null
+
                     if (isFullscreenMode.value) {
                         toggleFullscreen()
                     }
