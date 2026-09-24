@@ -1,0 +1,33 @@
+# Built binaries & packages
+*.apk
+*.aab
+*.aar
+*.ap_
+*.dex
+*.class
+
+# Build directories (Sabhi modules ke build folders ignore honge)
+build/
+app/build/
+**/build/
+
+# Gradle local caches
+.gradle/
+buildCache/
+
+# Android Studio & IDEA config files
+.idea/
+*.iml
+.navigation/
+captures/
+local.properties
+.externalNativeBuild/
+.cxx/
+
+# Crash dumps & Memory profiles (Root level .hprof ke liye)
+*.hprof
+java_pid*.hprof
+
+# OS generated files
+.DS_Store
+Thumbs.db
