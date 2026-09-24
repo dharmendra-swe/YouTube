@@ -117,21 +117,12 @@ class MainActivity : ComponentActivity(), YouTubePlayerManager.PlayerController 
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
-        // Android 12+ smooth auto-PiP
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                val params = PictureInPictureParams.Builder()
-                    .setAspectRatio(Rational(16, 9))
-                    .setAutoEnterEnabled(true)
-                    .build()
-                setPictureInPictureParams(params)
-            } catch (_: Exception) {}
-        }
+        // Android 12+ smooth auto-PiP removed as user requested only background audio, no PiP on app close
 
         YouTubePlayerManager.registerController(this)
 
         val incomingId = parseVideoIdFromIntent(intent)
-        if (incomingId != null) {
+        if (incomingId != null && incomingId != YouTubePlayerManager.videoId.value) {
             YouTubePlayerManager.loadVideo(
                 id = incomingId,
                 title = "Loading Video...",
@@ -182,7 +173,7 @@ class MainActivity : ComponentActivity(), YouTubePlayerManager.PlayerController 
         super.onNewIntent(intent)
         setIntent(intent)
         val newVideoId = parseVideoIdFromIntent(intent)
-        if (newVideoId != null) {
+        if (newVideoId != null && newVideoId != YouTubePlayerManager.videoId.value) {
             YouTubePlayerManager.loadVideo(newVideoId, context = this)
         }
     }
@@ -211,7 +202,7 @@ class MainActivity : ComponentActivity(), YouTubePlayerManager.PlayerController 
             return existing
         }
 
-        val wv = YouTubePersistentWebView(context).apply {
+        val wv = YouTubePersistentWebView(context.applicationContext).apply {
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT
@@ -372,9 +363,6 @@ class MainActivity : ComponentActivity(), YouTubePlayerManager.PlayerController 
         super.onUserLeaveHint()
         // Start foreground service to keep audio playing when app goes to background
         YouTubePlayerManager.startBackgroundService(this)
-        if (!YouTubePlayerManager.isAudioOnly.value && YouTubePlayerManager.isPlaying.value) {
-            enterPipMode()
-        }
     }
 
     override fun onStop() {

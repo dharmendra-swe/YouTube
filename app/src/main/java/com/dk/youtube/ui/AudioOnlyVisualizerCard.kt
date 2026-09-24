@@ -40,12 +40,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dk.youtube.player.VideoThumbnailImage
 import com.dk.youtube.ui.theme.*
+import android.Manifest
+import android.content.pm.PackageManager
+import android.media.audiofx.Visualizer
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sin
+import kotlin.math.hypot
 
 /**
  * Rotating Vinyl Disc & Audio-Only Visualizer for battery-saving playback.
@@ -68,7 +75,9 @@ fun AudioOnlyVisualizerCard(
     onSeekTo: (Int) -> Unit = {},
     onSwitchToVideo: () -> Unit,
     isLiked: Boolean = false,
-    onToggleLike: () -> Unit = {}
+    onToggleLike: () -> Unit = {},
+    audioSessionId: Int = 0,
+    playbackSpeed: Float = 1.0f
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "VinylSpin")
     val rotation by infiniteTransition.animateFloat(
@@ -103,7 +112,7 @@ fun AudioOnlyVisualizerCard(
 
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
-    
+
     // Using a local state to immediately update UI on click, synced with parent's isLiked initially
     var localIsLiked by remember(isLiked) { mutableStateOf(isLiked) }
 
@@ -175,44 +184,76 @@ fun AudioOnlyVisualizerCard(
 
             // Circular Visualizer & Vinyl Disc
             Box(contentAlignment = Alignment.Center) {
-                // Canvas Waveform Rings
+                // Continuous Smooth Waveform Rings
                 Canvas(modifier = Modifier.size(300.dp)) {
                     val center = Offset(size.width / 2, size.height / 2)
-                    val radius = size.width / 2 * 0.7f
-                    val barCount = 45
-                    for (i in 0 until barCount) {
-                        val angle = (i * 360f / barCount).toDouble()
-                        val angleRad = Math.toRadians(angle)
-                        val baseLength = 8.dp.toPx()
-                        // Dynamic amplitude based on fake beat and volumePulse
-                        val amplitude = if (isPlaying) (sin(angleRad * 4 + Math.toRadians(rotation.toDouble())) * 20.dp.toPx() * volumePulse).toFloat() else 0f
-                        val barLength = baseLength + abs(amplitude)
+                    // Edge of the 240.dp vinyl is 120.dp
+                    val baseRadius = 120.dp.toPx()
 
-                        val startX = center.x + radius * cos(angleRad).toFloat()
-                        val startY = center.y + radius * sin(angleRad).toFloat()
+                    val primaryPath = Path()
+                    val outerPath = Path()
 
-                        val endX = center.x + (radius + barLength) * cos(angleRad).toFloat()
-                        val endY = center.y + (radius + barLength) * sin(angleRad).toFloat()
+                    val steps = 180 // High resolution for smooth curves
+                    for (i in 0..steps) {
+                        val angle = i * (360f / steps)
+                        val angleRad = Math.toRadians(angle.toDouble())
 
-                        drawLine(
-                            brush = Brush.radialGradient(
-                                colors = listOf(YouTubeRed, Color(0xFFFF8800).copy(alpha = 0.6f), Color.Transparent),
-                                center = center,
-                                radius = size.width / 2
-                            ),
-                            start = Offset(startX, startY),
-                            end = Offset(endX, endY),
-                            strokeWidth = 4.dp.toPx(),
-                            cap = StrokeCap.Round
-                        )
+                        // Cubic Bézier / Smooth Harmonics using multiple sine waves
+                        val phase1 = Math.toRadians(rotation.toDouble() * 3)
+                        val phase2 = Math.toRadians(rotation.toDouble() * -2)
+
+                        val harmonic = (sin(angleRad * 3 + phase1) + sin(angleRad * 5 + phase2)).toFloat()
+
+                        // Volume-Linked Dynamic Amplitudes
+                        val dynamicAmplitude = if (isPlaying) 12.dp.toPx() * (volumePulse - 0.8f) else 0f
+
+                        // Crests and troughs calculation
+                        val primaryOffset = harmonic * dynamicAmplitude
+                        val outerOffset = harmonic * (dynamicAmplitude * 1.6f)
+
+                        val primaryR = baseRadius + Math.max(0f, primaryOffset)
+                        val outerR = baseRadius + Math.max(0f, outerOffset) + 4.dp.toPx()
+
+                        val pX = center.x + primaryR * cos(angleRad).toFloat()
+                        val pY = center.y + primaryR * sin(angleRad).toFloat()
+
+                        val oX = center.x + outerR * cos(angleRad).toFloat()
+                        val oY = center.y + outerR * sin(angleRad).toFloat()
+
+                        if (i == 0) {
+                            primaryPath.moveTo(pX, pY)
+                            outerPath.moveTo(oX, oY)
+                        } else {
+                            primaryPath.lineTo(pX, pY)
+                            outerPath.lineTo(oX, oY)
+                        }
                     }
+                    primaryPath.close()
+                    outerPath.close()
+
+                    // Faint outer aura wave
+                    drawPath(
+                        path = outerPath,
+                        color = YouTubeRed.copy(alpha = 0.25f),
+                        style = Stroke(width = 1.5.dp.toPx(), cap = StrokeCap.Round)
+                    )
+
+                    // Primary glowing red wave
+                    drawPath(
+                        path = primaryPath,
+                        brush = Brush.radialGradient(
+                            colors = listOf(YouTubeRed, Color(0xFFFF5500), YouTubeRed),
+                            center = center,
+                            radius = size.width / 2
+                        ),
+                        style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
+                    )
                 }
 
-                // Breathing Vinyl Disc
+                // Vinyl Disc (Fixed Size, removed breathingScale)
                 Box(
                     modifier = Modifier
                         .size(240.dp)
-                        .scale(breathingScale)
                         .clip(CircleShape)
                         .background(Color(0xFF111111))
                         .border(2.dp, Color(0xFF222222), CircleShape),

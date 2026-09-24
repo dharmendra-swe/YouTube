@@ -112,6 +112,12 @@ object YouTubePlayerManager {
     private val _isLiked = MutableStateFlow(false)
     val isLiked: StateFlow<Boolean> = _isLiked.asStateFlow()
 
+    private val _audioSessionId = MutableStateFlow(0)
+    val audioSessionId: StateFlow<Int> = _audioSessionId.asStateFlow()
+    
+    private val _playbackSpeed = MutableStateFlow(1.0f)
+    val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
+
     /**
      * Initializes or returns the singleton ExoPlayer configured with OkHttp and AudioAttributes.
      */
@@ -146,6 +152,11 @@ object YouTubePlayerManager {
                 repeatMode = Player.REPEAT_MODE_OFF
                 playWhenReady = true
                 addListener(object : Player.Listener {
+                    override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                        super.onAudioSessionIdChanged(audioSessionId)
+                        _audioSessionId.value = audioSessionId
+                    }
+
                     override fun onIsPlayingChanged(playing: Boolean) {
                         _isPlaying.value = playing
                         if (playing) {
@@ -186,6 +197,7 @@ object YouTubePlayerManager {
             }
 
         _exoPlayer = player
+        _audioSessionId.value = player.audioSessionId
         isPlayerInitialized = true
         return player
     }
