@@ -240,6 +240,20 @@ class MainActivity : ComponentActivity(), YouTubePlayerManager.PlayerController 
                 override fun getDefaultVideoPoster(): android.graphics.Bitmap? {
                     return android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
                 }
+
+                override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
+                    super.onShowCustomView(view, callback)
+                    if (!isFullscreenMode.value) {
+                        toggleFullscreen()
+                    }
+                }
+
+                override fun onHideCustomView() {
+                    super.onHideCustomView()
+                    if (isFullscreenMode.value) {
+                        toggleFullscreen()
+                    }
+                }
             }
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {

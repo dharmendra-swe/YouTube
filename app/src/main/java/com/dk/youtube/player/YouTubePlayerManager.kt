@@ -88,6 +88,9 @@ object YouTubePlayerManager {
     private val _isAutoplayEnabled = MutableStateFlow(true)
     val isAutoplayEnabled: StateFlow<Boolean> = _isAutoplayEnabled.asStateFlow()
 
+    private val _isLooping = MutableStateFlow(false)
+    val isLooping: StateFlow<Boolean> = _isLooping.asStateFlow()
+
     private val _currentPlaylist = MutableStateFlow<List<YouTubeVideoItem>>(emptyList())
     val currentPlaylist: StateFlow<List<YouTubeVideoItem>> = _currentPlaylist.asStateFlow()
 
@@ -372,6 +375,15 @@ object YouTubePlayerManager {
             pause(context)
         } else {
             play(context)
+        }
+    }
+
+    fun toggleLoop() {
+        val nextLoop = !_isLooping.value
+        _isLooping.value = nextLoop
+        _exoPlayer?.repeatMode = if (nextLoop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+        persistentWebView?.post {
+            persistentWebView?.evaluateJavascript("let v = document.querySelector('video'); if (v) v.loop = $nextLoop;", null)
         }
     }
 

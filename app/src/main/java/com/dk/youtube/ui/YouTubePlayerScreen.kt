@@ -64,8 +64,8 @@ fun YouTubePlayerScreen(
     val durationSec by YouTubePlayerManager.durationSec.collectAsState()
     val videoQuality by YouTubePlayerManager.videoQuality.collectAsState()
     val isLoadingStream by YouTubePlayerManager.isLoadingStream.collectAsState()
+    val isLooping by YouTubePlayerManager.isLooping.collectAsState()
 
-    var isScreenOffOverlayActive by remember { mutableStateOf(false) }
     var isMenuOpen by remember { mutableStateOf(false) }
     var showVideoQualityDialog by remember { mutableStateOf(false) }
     var showAudioQualityDialog by remember { mutableStateOf(false) }
@@ -73,8 +73,6 @@ fun YouTubePlayerScreen(
     BackHandler {
         if (isMenuOpen) {
             isMenuOpen = false
-        } else if (isScreenOffOverlayActive) {
-            isScreenOffOverlayActive = false
         } else if (isFullscreen) {
             onToggleFullscreen()
         } else {
@@ -132,8 +130,8 @@ fun YouTubePlayerScreen(
                     currentPositionSec = currentPositionSec,
                     durationSec = durationSec,
                     onTogglePlayPause = { YouTubePlayerManager.togglePlayPause(context) },
-                    onRewind = { YouTubePlayerManager.seekBy(-10, context) },
-                    onForward = { YouTubePlayerManager.seekBy(10, context) },
+                    isLooping = isLooping,
+                    onToggleLoop = { YouTubePlayerManager.toggleLoop() },
                     onPrevious = { YouTubePlayerManager.playPreviousVideo(context) },
                     onNext = { YouTubePlayerManager.playNextVideo(context) },
                     onSeekTo = { posSec -> YouTubePlayerManager.seekTo(posSec) },
@@ -156,7 +154,6 @@ fun YouTubePlayerScreen(
                     onNext = { YouTubePlayerManager.playNextVideo(context) },
                     onSeekTo = { posSec -> YouTubePlayerManager.seekTo(posSec) },
                     onToggleFullscreen = onToggleFullscreen,
-                    onEnterPip = onEnterPip,
                     onBack = { onToggleFullscreen() }
                 )
             }
@@ -173,16 +170,15 @@ fun YouTubePlayerScreen(
                 )
             }
 
-            // Semicircular Arc Buttons definition
             val menuItems = listOf(
                 ArcMenuItem(
-                    id = "screen_off",
-                    title = "Screen Off",
-                    icon = Icons.Default.Bedtime,
-                    color = Color(0xFFAB47BC),
+                    id = "loop",
+                    title = if (isLooping) "Loop: ON" else "Loop: OFF",
+                    icon = Icons.Default.RepeatOne,
+                    color = if (isLooping) YouTubeRed else Color(0xFF9E9E9E),
                     onClick = {
                         isMenuOpen = false
-                        isScreenOffOverlayActive = true
+                        YouTubePlayerManager.toggleLoop()
                     }
                 ),
                 ArcMenuItem(
@@ -203,16 +199,6 @@ fun YouTubePlayerScreen(
                     onClick = {
                         isMenuOpen = false
                         showAudioQualityDialog = true
-                    }
-                ),
-                ArcMenuItem(
-                    id = "pip",
-                    title = "Popup as Picture (PiP)",
-                    icon = Icons.Default.PictureInPictureAlt,
-                    color = Color(0xFF00E676),
-                    onClick = {
-                        isMenuOpen = false
-                        onEnterPip()
                     }
                 ),
                 ArcMenuItem(
@@ -242,17 +228,6 @@ fun YouTubePlayerScreen(
                     .align(Alignment.BottomEnd)
                     .navigationBarsPadding()
                     .padding(end = 10.dp, bottom = 60.dp)
-            )
-        }
-
-        // AMOLED Black Screen Overlay
-        if (isScreenOffOverlayActive && !isPipMode) {
-            ScreenOffOverlay(
-                title = currentTitle,
-                channel = currentChannel,
-                isPlaying = isPlaying,
-                onDismiss = { isScreenOffOverlayActive = false },
-                onTogglePlayPause = { YouTubePlayerManager.togglePlayPause(context) }
             )
         }
 

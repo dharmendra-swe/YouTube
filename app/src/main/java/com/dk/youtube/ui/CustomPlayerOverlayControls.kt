@@ -39,7 +39,6 @@ fun CustomPlayerOverlayControls(
     onNext: () -> Unit = {},
     onSeekTo: (Int) -> Unit,
     onToggleFullscreen: () -> Unit,
-    onEnterPip: () -> Unit,
     onBack: () -> Unit
 ) {
     var controlsVisible by remember { mutableStateOf(false) }
@@ -101,9 +100,6 @@ fun CustomPlayerOverlayControls(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    IconButton(onClick = onEnterPip) {
-                        Icon(Icons.Default.PictureInPictureAlt, contentDescription = "PiP", tint = Color.White)
-                    }
                 }
 
                 // Center Transport Controls

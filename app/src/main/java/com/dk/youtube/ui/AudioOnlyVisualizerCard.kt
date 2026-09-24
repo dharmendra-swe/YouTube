@@ -8,14 +8,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Forward10
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Replay10
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -52,8 +51,8 @@ fun AudioOnlyVisualizerCard(
     currentPositionSec: Int = 0,
     durationSec: Int = 0,
     onTogglePlayPause: () -> Unit,
-    onRewind: () -> Unit,
-    onForward: () -> Unit,
+    isLooping: Boolean,
+    onToggleLoop: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSeekTo: (Int) -> Unit = {},
@@ -157,7 +156,6 @@ fun AudioOnlyVisualizerCard(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
             ) {
                 Text(
                     text = if (title.isBlank() || title == "YouTube Ad-Free") "YouTube Music Mode" else title,
@@ -174,7 +172,7 @@ fun AudioOnlyVisualizerCard(
                     fontSize = 14.sp
                 )
                 Text(
-                    text = "High Fidelity Audio • $audioQuality",
+                    text = "Audio • $audioQuality",
                     color = YouTubeRed,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold
@@ -186,17 +184,37 @@ fun AudioOnlyVisualizerCard(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 12.dp)
                 ) {
+                    val sliderColors = SliderDefaults.colors(
+                        thumbColor = YouTubeRed,
+                        activeTrackColor = YouTubeRed,
+                        inactiveTrackColor = Color(0x33FFFFFF)
+                    )
+
+                    @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
                     Slider(
                         value = currentPositionSec.toFloat().coerceIn(0f, durationSec.toFloat()),
                         onValueChange = { onSeekTo(it.toInt()) },
                         valueRange = 0f..maxOf(durationSec.toFloat(), 1f),
-                        colors = SliderDefaults.colors(
-                            thumbColor = YouTubeRed,
-                            activeTrackColor = YouTubeRed,
-                            inactiveTrackColor = Color(0x33FFFFFF)
-                        ),
+                        colors = sliderColors,
+                        track = { sliderState ->
+                            SliderDefaults.Track(
+                                colors = sliderColors,
+                                sliderState = sliderState,
+                                modifier = Modifier.height(3.dp),
+                                thumbTrackGapSize = 0.dp,
+                                drawStopIndicator = null
+                            )
+                        },
+                        thumb = {
+                            // Completely flat, clean solid red circle without any border/shadow
+                            Box(
+                                modifier = Modifier
+                                    .offset(y = 2.dp)
+                                    .size(12.dp)
+                                    .background(color = YouTubeRed, shape = CircleShape)
+                            )
+                        },
                         modifier = Modifier.fillMaxWidth()
                     )
                     Row(
@@ -216,11 +234,10 @@ fun AudioOnlyVisualizerCard(
                     }
                 }
             }
-
-            // Transport Controls (Previous, Rewind, Play/Pause, Forward, Next)
+            // Transport Controls (Previous, Play/Pause, Next)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 IconButton(
                     onClick = onPrevious,
@@ -236,19 +253,6 @@ fun AudioOnlyVisualizerCard(
                 }
 
                 IconButton(
-                    onClick = onRewind,
-                    modifier = Modifier
-                        .size(46.dp)
-                        .background(YouTubeSurfaceVariant, CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Replay10,
-                        contentDescription = "Rewind 10s",
-                        tint = YouTubeTextPrimary
-                    )
-                }
-
-                IconButton(
                     onClick = onTogglePlayPause,
                     modifier = Modifier
                         .size(64.dp)
@@ -259,19 +263,6 @@ fun AudioOnlyVisualizerCard(
                         contentDescription = "Play/Pause",
                         tint = Color.White,
                         modifier = Modifier.size(36.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onForward,
-                    modifier = Modifier
-                        .size(46.dp)
-                        .background(YouTubeSurfaceVariant, CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Forward10,
-                        contentDescription = "Forward 10s",
-                        tint = YouTubeTextPrimary
                     )
                 }
 
