@@ -109,6 +109,9 @@ object YouTubePlayerManager {
     private val _videoQuality = MutableStateFlow("1080p")
     val videoQuality: StateFlow<String> = _videoQuality.asStateFlow()
 
+    private val _isLiked = MutableStateFlow(false)
+    val isLiked: StateFlow<Boolean> = _isLiked.asStateFlow()
+
     /**
      * Initializes or returns the singleton ExoPlayer configured with OkHttp and AudioAttributes.
      */
@@ -384,6 +387,22 @@ object YouTubePlayerManager {
         _exoPlayer?.repeatMode = if (nextLoop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         persistentWebView?.post {
             persistentWebView?.evaluateJavascript("let v = document.querySelector('video'); if (v) v.loop = $nextLoop;", null)
+        }
+    }
+
+    fun toggleLikeVideo() {
+        val nextLiked = !_isLiked.value
+        _isLiked.value = nextLiked
+        persistentWebView?.post {
+            // Attempt to click the like button in YouTube mobile web
+            persistentWebView?.evaluateJavascript(
+                """
+                (function() {
+                    var likeBtn = document.querySelector('like-button-view-model button, button.like-button-renderer-like-button, ytm-segmented-like-dislike-button-renderer button, .yt-spec-button-shape-next--segmented-start');
+                    if (likeBtn) likeBtn.click();
+                })();
+                """.trimIndent(), null
+            )
         }
     }
 

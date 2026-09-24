@@ -65,6 +65,7 @@ fun YouTubePlayerScreen(
     val videoQuality by YouTubePlayerManager.videoQuality.collectAsState()
     val isLoadingStream by YouTubePlayerManager.isLoadingStream.collectAsState()
     val isLooping by YouTubePlayerManager.isLooping.collectAsState()
+    val isLiked by YouTubePlayerManager.isLiked.collectAsState()
 
     var isMenuOpen by remember { mutableStateOf(false) }
     var showVideoQualityDialog by remember { mutableStateOf(false) }
@@ -138,7 +139,9 @@ fun YouTubePlayerScreen(
                     onSwitchToVideo = {
                         YouTubePlayerManager.setAudioOnly(false, context)
                         Toast.makeText(context, "Switched to Video Mode", Toast.LENGTH_SHORT).show()
-                    }
+                    },
+                    isLiked = isLiked,
+                    onToggleLike = { YouTubePlayerManager.toggleLikeVideo() }
                 )
             } else if (isFullscreen) {
                 CustomPlayerOverlayControls(
