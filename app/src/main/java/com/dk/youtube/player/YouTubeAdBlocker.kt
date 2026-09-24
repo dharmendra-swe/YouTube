@@ -51,11 +51,7 @@ object YouTubeAdBlocker {
      */
     fun injectPlayerCss(webView: WebView?) {
         val css = """
-            html, body {
-                margin: 0 !important;
-                padding: 0 !important;
-                background: #0F0F0F !important;
-            }
+
             .mobile-topbar-header-sign-in-button,
             .mobile-topbar-header-sign-in-button *,
             .mobile-topbar-header-content .mobile-topbar-header-sign-in-button,

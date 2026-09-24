@@ -23,3 +23,12 @@ val YouTubeTextMuted = Color(0xFF717171)
 // Functional Colors
 val YouTubeLiveBadge = Color(0xFFCC0000)
 val YouTubeAccentBlue = Color(0xFF3EA6FF)
+// Light Surfaces
+val YouTubeWhite = Color(0xFFFFFFFF)
+val YouTubeLightSurface = Color(0xFFF9F9F9)
+val YouTubeLightSurfaceVariant = Color(0xFFF1F1F1)
+val YouTubeLightBorder = Color(0xFFE5E5E5)
+
+// Light Content & Text Colors
+val YouTubeLightTextPrimary = Color(0xFF0F0F0F)
+val YouTubeLightTextSecondary = Color(0xFF606060)

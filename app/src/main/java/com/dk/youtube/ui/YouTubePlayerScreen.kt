@@ -91,7 +91,7 @@ fun YouTubePlayerScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(MaterialTheme.colorScheme.background)
     ) {
         // Primary YouTube WebView — loads m.youtube.com with full ad-blocking and background playback
         AndroidView(
@@ -322,7 +322,7 @@ private fun SemicircularControlsMenu(
                         .size(46.dp)
                         .shadow(elevation = 8.dp, shape = CircleShape)
                         .clip(CircleShape)
-                        .background(Color.Black.copy(alpha = 0.78f))
+                        .background(MaterialTheme.colorScheme.background.copy(alpha = 0.78f))
                         .border(1.4.dp, item.color.copy(alpha = 0.9f), CircleShape)
                         .clickable(enabled = isMenuOpen, onClick = item.onClick),
                     contentAlignment = Alignment.Center
@@ -343,7 +343,7 @@ private fun SemicircularControlsMenu(
                 .size(40.dp)
                 .shadow(elevation = 10.dp, shape = CircleShape)
                 .clip(CircleShape)
-                .background(Color.Black.copy(alpha = 0.52f))
+                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.52f))
                 .border(
                     width = 1.5.dp,
                     color = if (isMenuOpen) YouTubeRed else Color.White.copy(alpha = 0.45f),
