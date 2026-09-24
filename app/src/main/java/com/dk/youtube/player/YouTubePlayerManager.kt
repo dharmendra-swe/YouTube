@@ -402,6 +402,10 @@ object YouTubePlayerManager {
         }
     }
 
+    fun updateLikeState(isLiked: Boolean) {
+        _isLiked.value = isLiked
+    }
+
     fun toggleLikeVideo() {
         val nextLiked = !_isLiked.value
         _isLiked.value = nextLiked

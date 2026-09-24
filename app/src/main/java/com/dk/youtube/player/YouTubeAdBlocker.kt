@@ -393,6 +393,18 @@ object YouTubeAdBlocker {
                         // Dismiss promotional prompts
                         var dismiss = document.querySelector('button[aria-label="No thanks"], button[aria-label="Dismiss"], [aria-label="Accept all"], [aria-label="I agree"]');
                         if (dismiss) dismiss.click();
+
+                        // Sync Like button state
+                        var likeBtn = document.querySelector('like-button-view-model button, button.like-button-renderer-like-button, ytm-segmented-like-dislike-button-renderer button, .yt-spec-button-shape-next--segmented-start');
+                        if (likeBtn) {
+                            var isLiked = (likeBtn.getAttribute('aria-pressed') === 'true');
+                            if (window.__lastLikedState !== isLiked) {
+                                window.__lastLikedState = isLiked;
+                                if (window.AndroidBridge && typeof window.AndroidBridge.onLikeStateChanged === 'function') {
+                                    window.AndroidBridge.onLikeStateChanged(isLiked);
+                                }
+                            }
+                        }
                     }, 500);
                 }
             })();

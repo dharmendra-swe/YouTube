@@ -80,6 +80,13 @@ class MainActivity : ComponentActivity(), YouTubePlayerManager.PlayerController 
         }
 
         @JavascriptInterface
+        fun onLikeStateChanged(isLiked: Boolean) {
+            mainHandler.post {
+                YouTubePlayerManager.updateLikeState(isLiked)
+            }
+        }
+
+        @JavascriptInterface
         fun onVideoEnded() {
             mainHandler.post {
                 if (YouTubePlayerManager.isAutoplayEnabled.value) {
