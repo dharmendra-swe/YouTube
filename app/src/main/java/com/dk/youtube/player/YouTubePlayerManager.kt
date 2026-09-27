@@ -16,6 +16,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import kotlinx.coroutines.CoroutineScope
@@ -118,6 +119,20 @@ object YouTubePlayerManager {
     private val _playbackSpeed = MutableStateFlow(1.0f)
     val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
 
+    private val _sleepTimerRemainingSec = MutableStateFlow(0)
+    val sleepTimerRemainingSec: StateFlow<Int> = _sleepTimerRemainingSec.asStateFlow()
+
+    private val _isSleepTimerActive = MutableStateFlow(false)
+    val isSleepTimerActive: StateFlow<Boolean> = _isSleepTimerActive.asStateFlow()
+
+    private val _currentVideoUrl = MutableStateFlow<String?>(null)
+    val currentVideoUrl: StateFlow<String?> = _currentVideoUrl.asStateFlow()
+
+    private val _currentAudioUrl = MutableStateFlow<String?>(null)
+    val currentAudioUrl: StateFlow<String?> = _currentAudioUrl.asStateFlow()
+
+    private var sleepTimerJob: Job? = null
+
     /**
      * Initializes or returns the singleton ExoPlayer configured with OkHttp and AudioAttributes.
      */
@@ -135,8 +150,14 @@ object YouTubePlayerManager {
         val okHttpDataSourceFactory = OkHttpDataSource.Factory(okHttpClient)
             .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-        val dataSourceFactory = DefaultDataSource.Factory(appContext, okHttpDataSourceFactory)
-        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+        val defaultDataSourceFactory = DefaultDataSource.Factory(appContext, okHttpDataSourceFactory)
+        
+        val cacheDataSourceFactory = CacheDataSource.Factory()
+            .setCache(YouTubeMediaCache.getInstance(appContext))
+            .setUpstreamDataSourceFactory(defaultDataSourceFactory)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+
+        val mediaSourceFactory = DefaultMediaSourceFactory(cacheDataSourceFactory)
 
         val audioAttributes = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
@@ -494,6 +515,26 @@ object YouTubePlayerManager {
                     if (bundle.durationSec > 0) {
                         _durationSec.value = bundle.durationSec.toInt()
                     }
+                    
+                    _currentVideoUrl.value = bundle.primaryVideoPlayableUrl
+                    _currentAudioUrl.value = bundle.bestAudioUrl
+
+                    // Set MediaItem to ExoPlayer for cached playback
+                    val bestUrl = if (_isAudioOnly.value) bundle.bestAudioUrl else bundle.primaryVideoPlayableUrl
+                    if (bestUrl != null) {
+                        val mediaItem = androidx.media3.common.MediaItem.fromUri(bestUrl)
+                        _exoPlayer?.setMediaItem(mediaItem)
+                        _exoPlayer?.prepare()
+                        if (_isPlaying.value) {
+                            _exoPlayer?.play()
+                        }
+                        
+                        // If we are relying on ExoPlayer for offline loop caching (especially in Audio Mode),
+                        // mute the WebView to avoid double audio.
+                        persistentWebView?.post {
+                            persistentWebView?.evaluateJavascript("let v = document.querySelector('video'); if (v) v.muted = true;", null)
+                        }
+                    }
                 }
                 _isLoadingStream.value = false
 
@@ -544,4 +585,57 @@ object YouTubePlayerManager {
             context.startService(intent)
         } catch (_: Exception) {}
     }
+
+    fun startSleepTimer(minutes: Int) {
+        cancelSleepTimer()
+        _isSleepTimerActive.value = true
+        _sleepTimerRemainingSec.value = minutes * 60
+
+        sleepTimerJob = playerScope.launch {
+            while (isActive && _sleepTimerRemainingSec.value > 0) {
+                delay(1000)
+                _sleepTimerRemainingSec.value -= 1
+                
+                // Gradually fade out volume in the last 30 seconds
+                if (_sleepTimerRemainingSec.value <= 30) {
+                    val fadeVol = ((_sleepTimerRemainingSec.value / 30f) * 100).toInt()
+                    setVolume(fadeVol)
+                }
+            }
+            if (_sleepTimerRemainingSec.value <= 0) {
+                pause() // Pause the player when timer ends
+                cancelSleepTimer() // Reset state
+            }
+        }
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        _isSleepTimerActive.value = false
+        _sleepTimerRemainingSec.value = 0
+        setVolume(100) // Restore volume if it was fading out
+    }
+
+    fun downloadMedia(context: Context, url: String, title: String, isAudio: Boolean) {
+        try {
+            val downloadManager = context.getSystemService(Context.DOWNLOAD_SERVICE) as android.app.DownloadManager
+            val request = android.app.DownloadManager.Request(android.net.Uri.parse(url)).apply {
+                val safeTitle = title.replace("[\\\\/:*?\"<>|]".toRegex(), "_")
+                val filename = if (isAudio) "$safeTitle.m4a" else "$safeTitle.mp4"
+                
+                setTitle(filename)
+                setDescription("Downloading YouTube ${if (isAudio) "Audio" else "Video"}...")
+                setNotificationVisibility(android.app.DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_DOWNLOADS, filename)
+                allowScanningByMediaScanner()
+            }
+            downloadManager.enqueue(request)
+            android.widget.Toast.makeText(context, "Download Started: ${if (isAudio) "Audio" else "Video"}", android.widget.Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            android.widget.Toast.makeText(context, "Failed to start download", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
 }
+

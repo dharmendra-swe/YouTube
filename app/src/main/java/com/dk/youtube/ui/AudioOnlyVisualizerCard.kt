@@ -113,6 +113,69 @@ fun AudioOnlyVisualizerCard(
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
 
+    var hasRecordAudioPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasRecordAudioPermission = isGranted
+    }
+
+    LaunchedEffect(Unit) {
+        if (!hasRecordAudioPermission) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
+    var beatMagnitude by remember { mutableFloatStateOf(0f) }
+
+    DisposableEffect(audioSessionId, hasRecordAudioPermission) {
+        var visualizer: Visualizer? = null
+        if (hasRecordAudioPermission && audioSessionId != 0) {
+            try {
+                visualizer = Visualizer(audioSessionId).apply {
+                    captureSize = Visualizer.getCaptureSizeRange()[1]
+                    setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
+                        override fun onWaveFormDataCapture(v: Visualizer?, waveform: ByteArray?, samplingRate: Int) {}
+                        override fun onFftDataCapture(v: Visualizer?, fft: ByteArray?, samplingRate: Int) {
+                            if (fft != null && fft.size > 2 && isPlaying) {
+                                var maxBass = 0f
+                                // Analyze lower frequency bins for bass beats
+                                for (i in 0 until minOf(16, fft.size / 2)) {
+                                    val r = fft[i * 2].toFloat()
+                                    val iComp = fft[i * 2 + 1].toFloat()
+                                    val mag = hypot(r, iComp)
+                                    if (mag > maxBass) maxBass = mag
+                                }
+                                // Normalize magnitude (usually 0 to 100-200 range depending on volume)
+                                beatMagnitude = (maxBass / 120f).coerceIn(0f, 1.5f)
+                            } else if (!isPlaying) {
+                                beatMagnitude = 0f
+                            }
+                        }
+                    }, Visualizer.getMaxCaptureRate() / 2, false, true)
+                    enabled = true
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+        onDispose {
+            visualizer?.enabled = false
+            visualizer?.release()
+        }
+    }
+
+    val animatedBeat by animateFloatAsState(
+        targetValue = beatMagnitude,
+        animationSpec = tween(80, easing = LinearOutSlowInEasing),
+        label = "BeatAnimation"
+    )
+
     // Using a local state to immediately update UI on click, synced with parent's isLiked initially
     var localIsLiked by remember(isLiked) { mutableStateOf(isLiked) }
 
@@ -205,7 +268,11 @@ fun AudioOnlyVisualizerCard(
                         val harmonic = (sin(angleRad * 3 + phase1) + sin(angleRad * 5 + phase2)).toFloat()
 
                         // Volume-Linked Dynamic Amplitudes
-                        val dynamicAmplitude = if (isPlaying) 12.dp.toPx() * (volumePulse - 0.8f) else 0f
+                        val dynamicAmplitude = if (hasRecordAudioPermission) {
+                            if (isPlaying) 12.dp.toPx() + (30.dp.toPx() * animatedBeat) else 0f
+                        } else {
+                            if (isPlaying) 12.dp.toPx() * (volumePulse - 0.8f) else 0f
+                        }
 
                         // Crests and troughs calculation
                         val primaryOffset = harmonic * dynamicAmplitude

@@ -68,10 +68,16 @@ fun YouTubePlayerScreen(
     val isLiked by YouTubePlayerManager.isLiked.collectAsState()
     val audioSessionId by YouTubePlayerManager.audioSessionId.collectAsState()
     val playbackSpeed by YouTubePlayerManager.playbackSpeed.collectAsState()
+    val isSleepTimerActive by YouTubePlayerManager.isSleepTimerActive.collectAsState()
+    val sleepTimerRemainingSec by YouTubePlayerManager.sleepTimerRemainingSec.collectAsState()
+    val currentVideoUrl by YouTubePlayerManager.currentVideoUrl.collectAsState()
+    val currentAudioUrl by YouTubePlayerManager.currentAudioUrl.collectAsState()
 
     var isMenuOpen by remember { mutableStateOf(false) }
     var showVideoQualityDialog by remember { mutableStateOf(false) }
     var showAudioQualityDialog by remember { mutableStateOf(false) }
+    var showSleepTimerDialog by remember { mutableStateOf(false) }
+    var showDownloadDialog by remember { mutableStateOf(false) }
 
     BackHandler {
         if (isMenuOpen) {
@@ -241,6 +247,30 @@ fun YouTubePlayerScreen(
                         ).show()
                         isMenuOpen = false
                     }
+                ),
+                ArcMenuItem(
+                    id = "sleep_timer",
+                    title = if (isSleepTimerActive) "Sleep Timer: ${sleepTimerRemainingSec / 60}m remaining" else "Sleep Timer",
+                    icon = Icons.Default.Bedtime,
+                    color = if (isSleepTimerActive) YouTubeRed else Color(0xFF9C27B0),
+                    onClick = {
+                        isMenuOpen = false
+                        showSleepTimerDialog = true
+                    }
+                ),
+                ArcMenuItem(
+                    id = "download",
+                    title = "Download to Storage",
+                    icon = Icons.Default.Download,
+                    color = Color(0xFF4CAF50),
+                    onClick = {
+                        isMenuOpen = false
+                        if (currentVideoUrl != null || currentAudioUrl != null) {
+                            showDownloadDialog = true
+                        } else {
+                            Toast.makeText(context, "Media URL not ready yet", Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 )
             )
 
@@ -279,6 +309,41 @@ fun YouTubePlayerScreen(
                     Toast.makeText(context, "Audio Quality: $q", Toast.LENGTH_SHORT).show()
                 },
                 onDismiss = { showAudioQualityDialog = false }
+            )
+        }
+
+        // Sleep Timer Dialog
+        if (showSleepTimerDialog) {
+            SleepTimerDialog(
+                isActive = isSleepTimerActive,
+                remainingSec = sleepTimerRemainingSec,
+                onSetTimer = { mins ->
+                    YouTubePlayerManager.startSleepTimer(mins)
+                    showSleepTimerDialog = false
+                    Toast.makeText(context, "Sleep Timer set for $mins minutes", Toast.LENGTH_SHORT).show()
+                },
+                onCancelTimer = {
+                    YouTubePlayerManager.cancelSleepTimer()
+                    showSleepTimerDialog = false
+                    Toast.makeText(context, "Sleep Timer cancelled", Toast.LENGTH_SHORT).show()
+                },
+                onDismiss = { showSleepTimerDialog = false }
+            )
+        }
+
+        // True Download Dialog
+        if (showDownloadDialog) {
+            DownloadDialog(
+                hasVideoUrl = currentVideoUrl != null,
+                hasAudioUrl = currentAudioUrl != null,
+                onDownload = { isAudio ->
+                    val url = if (isAudio) currentAudioUrl else currentVideoUrl
+                    if (url != null) {
+                        YouTubePlayerManager.downloadMedia(context, url, currentTitle, isAudio)
+                    }
+                    showDownloadDialog = false
+                },
+                onDismiss = { showDownloadDialog = false }
             )
         }
     }
@@ -480,6 +545,135 @@ fun QualitySelectionDialog(
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text("Close", color = YouTubeTextSecondary)
+            }
+        }
+    )
+}
+
+/**
+ * Sleep Timer Dialog.
+ */
+@Composable
+fun SleepTimerDialog(
+    isActive: Boolean,
+    remainingSec: Int,
+    onSetTimer: (Int) -> Unit,
+    onCancelTimer: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val times = listOf(15, 30, 45, 60, 90, 120)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = YouTubeSurface,
+        title = {
+            Text("Sleep Timer", color = YouTubeTextPrimary, fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column {
+                if (isActive) {
+                    Text(
+                        text = "Time Remaining: ${remainingSec / 60}m ${remainingSec % 60}s",
+                        color = YouTubeRed,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                } else {
+                    Text(
+                        text = "Stop audio automatically after:",
+                        color = YouTubeTextSecondary,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                }
+
+                times.forEach { mins ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSetTimer(mins) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "$mins Minutes",
+                            color = YouTubeTextPrimary
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            if (isActive) {
+                TextButton(onClick = onCancelTimer) {
+                    Text("Turn Off Timer", color = YouTubeRed)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = YouTubeTextSecondary)
+            }
+        }
+    )
+}
+
+/**
+ * True Download Dialog.
+ */
+@Composable
+fun DownloadDialog(
+    hasVideoUrl: Boolean,
+    hasAudioUrl: Boolean,
+    onDownload: (Boolean) -> Unit, // true for Audio, false for Video
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = YouTubeSurface,
+        title = {
+            Text("Download to Storage", color = YouTubeTextPrimary, fontWeight = FontWeight.Bold)
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Save this media permanently to your device's Downloads folder.",
+                    color = YouTubeTextSecondary,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                if (hasVideoUrl) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onDownload(false) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.Videocam, contentDescription = null, tint = Color(0xFF3EA6FF))
+                        Spacer(Modifier.width(16.dp))
+                        Text("Download Video (MP4)", color = YouTubeTextPrimary)
+                    }
+                }
+                
+                if (hasAudioUrl) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onDownload(true) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.MusicNote, contentDescription = null, tint = YouTubeRed)
+                        Spacer(Modifier.width(16.dp))
+                        Text("Download Audio (M4A)", color = YouTubeTextPrimary)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel", color = YouTubeTextSecondary)
             }
         }
     )
