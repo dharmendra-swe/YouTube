@@ -62,6 +62,9 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.datasource.okhttp)
 
+    // Pull to refresh
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+
     // Unit & Instrumented Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

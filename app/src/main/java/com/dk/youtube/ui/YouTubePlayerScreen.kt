@@ -100,7 +100,25 @@ fun YouTubePlayerScreen(
                 .then(if (!isFullscreen && !isPipMode) Modifier.statusBarsPadding() else Modifier)
                 .then(if (isAudioOnly) Modifier.alpha(0f) else Modifier),
             factory = { ctx ->
-                (ctx as MainActivity).getOrCreateWebView(ctx)
+                val swipeRefreshLayout = androidx.swiperefreshlayout.widget.SwipeRefreshLayout(ctx).apply {
+                    layoutParams = android.view.ViewGroup.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+                }
+                
+                val webView = (ctx as MainActivity).getOrCreateWebView(ctx)
+                (webView.parent as? android.view.ViewGroup)?.removeView(webView)
+                
+                swipeRefreshLayout.addView(webView)
+                swipeRefreshLayout.setOnRefreshListener {
+                    webView.reload()
+                    swipeRefreshLayout.postDelayed({
+                        swipeRefreshLayout.isRefreshing = false
+                    }, 1500)
+                }
+                
+                swipeRefreshLayout
             },
             update = { _ ->
                 // WebView lifecycle managed by getOrCreateWebView + PersistentWebView

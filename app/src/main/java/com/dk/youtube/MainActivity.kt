@@ -276,6 +276,22 @@ class MainActivity : ComponentActivity(), YouTubePlayerManager.PlayerController 
                 }
             }
             webViewClient = object : WebViewClient() {
+                override fun onRenderProcessGone(view: WebView?, detail: android.webkit.RenderProcessGoneDetail?): Boolean {
+                    Toast.makeText(this@MainActivity, "Recovering player from memory limit...", Toast.LENGTH_SHORT).show()
+                    val oldWv = YouTubePlayerManager.persistentWebView
+                    if (oldWv != null) {
+                        val parent = oldWv.parent as? ViewGroup
+                        YouTubePlayerManager.persistentWebView = null
+                        if (parent != null) {
+                            parent.removeView(oldWv)
+                            val newWv = getOrCreateWebView(this@MainActivity)
+                            parent.addView(newWv)
+                        }
+                        oldWv.destroy()
+                    }
+                    return true
+                }
+
                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                     val url = request?.url?.toString() ?: return false
                     if (url.startsWith("intent://") ||
